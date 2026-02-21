@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-load_dotenv(os.path.join("factorybot_cloud", ".env"))
+load_dotenv(os.path.join("agents", "factorybot_cloud", ".env"))
 
 from google.adk.cli.fast_api import get_fast_api_app
 from starlette.middleware.sessions import SessionMiddleware
@@ -13,7 +13,7 @@ from auth.middleware import AuthMiddleware
 from auth.oauth import setup_oauth_routes
 
 app = get_fast_api_app(
-    agents_dir="factorybot_cloud",
+    agents_dir=os.path.join(os.path.dirname(os.path.abspath(__file__)), "agents"),
     web=True,
     allow_origins=["*"],
     host="0.0.0.0",
