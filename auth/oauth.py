@@ -20,6 +20,8 @@ def setup_oauth_routes(app: FastAPI):
     @app.get("/auth/google")
     async def auth_google(request: Request):
         redirect_uri = str(request.url_for("auth_callback"))
+        if os.getenv("ENV") == "production":
+            redirect_uri = redirect_uri.replace("http://", "https://")
         return await oauth.google.authorize_redirect(request, redirect_uri)
 
     @app.get("/auth/callback")
