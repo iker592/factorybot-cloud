@@ -21,13 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install ADK
-        run: pip install google-adk
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -38,9 +31,12 @@ jobs:
 
       - name: Deploy to Cloud Run
         run: |
-          adk deploy cloud_run \
+          gcloud run deploy $SERVICE_NAME \
+            --source . \
             --project $PROJECT_ID \
             --region $REGION \
-            --service_name $SERVICE_NAME \
-            --with_ui \
-            factorybot_cloud
+            --allow-unauthenticated \
+            --set-env-vars "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},ENV=production,GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
+            --set-secrets "GOOGLE_CLIENT_SECRET=google-client-secret:latest" \
+            --port 8080 \
+            --memory 1Gi
