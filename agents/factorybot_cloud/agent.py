@@ -1,3 +1,5 @@
+"""FactoryBot Cloud - Factory operations AI agent."""
+
 from google.adk.agents import Agent
 
 
