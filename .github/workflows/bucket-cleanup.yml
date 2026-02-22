@@ -1,0 +1,38 @@
+name: Cleanup Bucket
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [dev]
+
+env:
+  PROJECT_ID: gen-lang-client-0612021813
+  REGION: us-central1
+  SERVICE_NAME: factorybot-cloud-pr-${{ github.event.pull_request.number }}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Delete bucket service
+        run: |
+          if gcloud run services describe $SERVICE_NAME \
+            --project $PROJECT_ID --region $REGION --quiet 2>/dev/null; then
+            gcloud run services delete $SERVICE_NAME \
+              --project $PROJECT_ID --region $REGION --quiet
+            echo "Deleted bucket service: $SERVICE_NAME"
+          else
+            echo "Service $SERVICE_NAME not found, skipping cleanup"
+          fi

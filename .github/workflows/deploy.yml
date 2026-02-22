@@ -1,4 +1,4 @@
-name: Deploy to Cloud Run
+name: Deploy to Production
 
 on:
   push:
@@ -36,7 +36,17 @@ jobs:
             --project $PROJECT_ID \
             --region $REGION \
             --allow-unauthenticated \
-            --set-env-vars "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},ENV=production,GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }},CANONICAL_HOST=factorybot-cloud-379933901191.us-central1.run.app" \
+            --set-env-vars "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},ENV=production,GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
             --set-secrets "GOOGLE_CLIENT_SECRET=google-client-secret:latest" \
             --port 8080 \
             --memory 1Gi
+
+      - name: Set canonical host
+        run: |
+          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+            --project $PROJECT_ID --region $REGION \
+            --format="value(status.url)")
+          CANONICAL_HOST=$(echo "$SERVICE_URL" | sed 's|https://||')
+          gcloud run services update $SERVICE_NAME \
+            --project $PROJECT_ID --region $REGION \
+            --update-env-vars "CANONICAL_HOST=$CANONICAL_HOST"
