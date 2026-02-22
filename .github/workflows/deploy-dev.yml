@@ -1,0 +1,98 @@
+name: Deploy to Dev
+
+on:
+  push:
+    branches: [dev]
+    paths-ignore: [docs/**, mkdocs.yml, "*.md"]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: gen-lang-client-0612021813
+  REGION: us-central1
+  SERVICE_NAME: factorybot-cloud-dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy $SERVICE_NAME \
+            --source . \
+            --project $PROJECT_ID \
+            --region $REGION \
+            --allow-unauthenticated \
+            --set-env-vars "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},ENV=dev,GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
+            --set-secrets "GOOGLE_CLIENT_SECRET=google-client-secret:latest" \
+            --port 8080 \
+            --memory 1Gi
+
+      - name: Set canonical host
+        run: |
+          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+            --project $PROJECT_ID --region $REGION \
+            --format="value(status.url)")
+          CANONICAL_HOST=$(echo "$SERVICE_URL" | sed 's|https://||')
+          gcloud run services update $SERVICE_NAME \
+            --project $PROJECT_ID --region $REGION \
+            --update-env-vars "CANONICAL_HOST=$CANONICAL_HOST"
+
+  e2e-tests:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get dev service URL
+        id: url
+        run: |
+          SERVICE_URL=$(gcloud run services describe factorybot-cloud-dev \
+            --project $PROJECT_ID --region $REGION \
+            --format="value(status.url)")
+          echo "url=$SERVICE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Health check - login page
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.url.outputs.url }}/login")
+          echo "Login page status: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Health check - root redirects
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -L "${{ steps.url.outputs.url }}/")
+          echo "Root redirect status: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Health check - auth endpoint exists
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.url.outputs.url }}/auth/google")
+          echo "Auth endpoint status: $STATUS (302 expected)"
+          [ "$STATUS" = "302" ] || [ "$STATUS" = "303" ] || exit 1
+
+      - name: Health check - protected routes require auth
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.url.outputs.url }}/dev-ui/")
+          echo "Protected route status: $STATUS (303 redirect to login expected)"
+          [ "$STATUS" = "303" ] || exit 1

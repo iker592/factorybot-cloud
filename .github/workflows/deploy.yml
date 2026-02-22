@@ -1,14 +1,15 @@
-name: Deploy to Cloud Run
+name: Deploy to Production
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
     paths-ignore: [docs/**, mkdocs.yml, "*.md"]
   workflow_dispatch:
 
 env:
   PROJECT_ID: gen-lang-client-0612021813
   REGION: us-central1
+  SERVICE_NAME: factorybot-cloud
 
 jobs:
   deploy:
@@ -16,10 +17,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-
-    env:
-      SERVICE_NAME: ${{ github.ref_name == 'main' && 'factorybot-cloud' || 'factorybot-cloud-dev' }}
-      ENV_MODE: ${{ github.ref_name == 'main' && 'production' || 'dev' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +36,7 @@ jobs:
             --project $PROJECT_ID \
             --region $REGION \
             --allow-unauthenticated \
-            --set-env-vars "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},ENV=$ENV_MODE,GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
+            --set-env-vars "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},ENV=production,GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
             --set-secrets "GOOGLE_CLIENT_SECRET=google-client-secret:latest" \
             --port 8080 \
             --memory 1Gi
@@ -47,11 +44,9 @@ jobs:
       - name: Set canonical host
         run: |
           SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
-            --project $PROJECT_ID \
-            --region $REGION \
+            --project $PROJECT_ID --region $REGION \
             --format="value(status.url)")
           CANONICAL_HOST=$(echo "$SERVICE_URL" | sed 's|https://||')
           gcloud run services update $SERVICE_NAME \
-            --project $PROJECT_ID \
-            --region $REGION \
+            --project $PROJECT_ID --region $REGION \
             --update-env-vars "CANONICAL_HOST=$CANONICAL_HOST"

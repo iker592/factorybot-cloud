@@ -1,0 +1,103 @@
+name: Bucket (PR Preview)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [dev]
+    paths-ignore: [docs/**, mkdocs.yml, "*.md"]
+
+concurrency:
+  group: bucket-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_ID: gen-lang-client-0612021813
+  REGION: us-central1
+  SERVICE_NAME: factorybot-cloud-pr-${{ github.event.pull_request.number }}
+
+jobs:
+  deploy-bucket:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy bucket to Cloud Run
+        run: |
+          gcloud run deploy $SERVICE_NAME \
+            --source . \
+            --project $PROJECT_ID \
+            --region $REGION \
+            --allow-unauthenticated \
+            --set-env-vars "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},ENV=dev,GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
+            --set-secrets "GOOGLE_CLIENT_SECRET=google-client-secret:latest" \
+            --port 8080 \
+            --memory 512Mi \
+            --max-instances 2
+
+      - name: Set canonical host
+        run: |
+          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+            --project $PROJECT_ID --region $REGION \
+            --format="value(status.url)")
+          CANONICAL_HOST=$(echo "$SERVICE_URL" | sed 's|https://||')
+          gcloud run services update $SERVICE_NAME \
+            --project $PROJECT_ID --region $REGION \
+            --update-env-vars "CANONICAL_HOST=$CANONICAL_HOST"
+
+      - name: Get bucket URL
+        id: url
+        run: |
+          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+            --project $PROJECT_ID --region $REGION \
+            --format="value(status.url)")
+          echo "url=$SERVICE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.url.outputs.url }}/login")
+          echo "Bucket health: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Comment bucket URL on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.url.outputs.url }}';
+            const body = `### 🪣 Bucket deployed!\n\n| Environment | URL |\n|---|---|\n| Bucket | ${url} |\n| Dev UI | ${url}/dev-ui/ |\n| Login | ${url}/login |\n\n_This preview will be deleted when the PR is closed._`;
+
+            // Find existing bucket comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.data.find(c => c.body.includes('Bucket deployed'));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
