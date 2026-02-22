@@ -43,10 +43,9 @@ jobs:
 
       - name: Set canonical host
         run: |
-          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
-            --project $PROJECT_ID --region $REGION \
-            --format="value(status.url)")
-          CANONICAL_HOST=$(echo "$SERVICE_URL" | sed 's|https://||')
+          PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID \
+            --format="value(projectNumber)")
+          CANONICAL_HOST="${SERVICE_NAME}-${PROJECT_NUMBER}.${REGION}.run.app"
           gcloud run services update $SERVICE_NAME \
             --project $PROJECT_ID --region $REGION \
             --update-env-vars "CANONICAL_HOST=$CANONICAL_HOST"
