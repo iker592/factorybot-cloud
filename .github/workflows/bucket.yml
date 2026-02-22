@@ -12,6 +12,7 @@ concurrency:
 
 env:
   PROJECT_ID: gen-lang-client-0612021813
+  PROJECT_NUMBER: "379933901191"
   REGION: us-central1
   SERVICE_NAME: factorybot-cloud-pr-${{ github.event.pull_request.number }}
 
@@ -47,22 +48,14 @@ jobs:
             --memory 512Mi \
             --max-instances 2
 
-      - name: Set canonical host
+      - name: Set canonical host and get URL
+        id: url
         run: |
-          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
-            --project $PROJECT_ID --region $REGION \
-            --format="value(status.url)")
-          CANONICAL_HOST=$(echo "$SERVICE_URL" | sed 's|https://||')
+          CANONICAL_HOST="${SERVICE_NAME}-${PROJECT_NUMBER}.${REGION}.run.app"
           gcloud run services update $SERVICE_NAME \
             --project $PROJECT_ID --region $REGION \
             --update-env-vars "CANONICAL_HOST=$CANONICAL_HOST"
-
-      - name: Get bucket URL
-        id: url
-        run: |
-          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
-            --project $PROJECT_ID --region $REGION \
-            --format="value(status.url)")
+          SERVICE_URL="https://${CANONICAL_HOST}"
           echo "url=$SERVICE_URL" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test
