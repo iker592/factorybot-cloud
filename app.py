@@ -106,3 +106,4 @@ async def root(request: Request):
     return HTMLResponse(
         '<meta http-equiv="refresh" content="0;url=/login">'
     )
+# Pipeline test
