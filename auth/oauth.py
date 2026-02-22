@@ -23,7 +23,7 @@ def setup_oauth_routes(app: FastAPI):
         if canonical and request.url.hostname != canonical:
             return RedirectResponse(f"https://{canonical}/auth/google")
         redirect_uri = str(request.url_for("auth_callback"))
-        if os.getenv("ENV") == "production":
+        if os.getenv("CANONICAL_HOST"):
             redirect_uri = redirect_uri.replace("http://", "https://")
         return await oauth.google.authorize_redirect(request, redirect_uri)
 
