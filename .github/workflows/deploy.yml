@@ -8,6 +8,7 @@ on:
 
 env:
   PROJECT_ID: gen-lang-client-0612021813
+  PROJECT_NUMBER: "379933901191"
   REGION: us-central1
   SERVICE_NAME: factorybot-cloud
 
@@ -43,8 +44,6 @@ jobs:
 
       - name: Set canonical host
         run: |
-          PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID \
-            --format="value(projectNumber)")
           CANONICAL_HOST="${SERVICE_NAME}-${PROJECT_NUMBER}.${REGION}.run.app"
           gcloud run services update $SERVICE_NAME \
             --project $PROJECT_ID --region $REGION \

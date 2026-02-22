@@ -8,6 +8,7 @@ on:
 
 env:
   PROJECT_ID: gen-lang-client-0612021813
+  PROJECT_NUMBER: "379933901191"
   REGION: us-central1
   SERVICE_NAME: factorybot-cloud-dev
 
@@ -43,8 +44,6 @@ jobs:
 
       - name: Set canonical host
         run: |
-          PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID \
-            --format="value(projectNumber)")
           CANONICAL_HOST="${SERVICE_NAME}-${PROJECT_NUMBER}.${REGION}.run.app"
           gcloud run services update $SERVICE_NAME \
             --project $PROJECT_ID --region $REGION \
@@ -67,8 +66,6 @@ jobs:
       - name: Get dev service URL
         id: url
         run: |
-          PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID \
-            --format="value(projectNumber)")
           SERVICE_URL="https://factorybot-cloud-dev-${PROJECT_NUMBER}.${REGION}.run.app"
           echo "url=$SERVICE_URL" >> "$GITHUB_OUTPUT"
 
