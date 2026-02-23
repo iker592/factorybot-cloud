@@ -16,6 +16,7 @@ def get_system_status(component: str) -> dict:
         "assembly_line": {"status": "running", "efficiency": "94%", "units_today": 1247},
         "inventory": {"status": "ok", "low_stock_items": 3, "total_items": 892},
         "quality_control": {"status": "warning", "defect_rate": "2.1%", "threshold": "1.5%"},
+        "shipping": {"status": "running", "pending_orders": 47, "dispatched_today": 312},
     }
     return statuses.get(component, {"status": "unknown", "message": f"Component '{component}' not found"})
 
@@ -26,7 +27,7 @@ def get_all_statuses() -> dict:
     Returns:
         A dictionary with all component statuses.
     """
-    components = ["assembly_line", "inventory", "quality_control"]
+    components = ["assembly_line", "inventory", "quality_control", "shipping"]
     return {c: get_system_status(c) for c in components}
 
 
