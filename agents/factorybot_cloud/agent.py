@@ -20,6 +20,16 @@ def get_system_status(component: str) -> dict:
     return statuses.get(component, {"status": "unknown", "message": f"Component '{component}' not found"})
 
 
+def get_all_statuses() -> dict:
+    """Returns the status of all factory components at once.
+
+    Returns:
+        A dictionary with all component statuses.
+    """
+    components = ["assembly_line", "inventory", "quality_control"]
+    return {c: get_system_status(c) for c in components}
+
+
 def create_work_order(task: str, priority: str = "normal") -> dict:
     """Creates a new work order for the factory floor.
 
@@ -49,5 +59,5 @@ You help operators monitor production lines, check inventory levels, track quali
 and create work orders. Be concise, data-driven, and proactive about flagging issues.
 
 When reporting status, highlight any warnings or anomalies first.""",
-    tools=[get_system_status, create_work_order],
+    tools=[get_system_status, get_all_statuses, create_work_order],
 )
